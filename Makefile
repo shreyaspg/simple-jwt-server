@@ -1,5 +1,5 @@
 build:
-	go build -o target/main main.go
+	go build -o target/server server.go routes.go
 
 clean:
-	rm -f target/main
+	rm -f target/server
