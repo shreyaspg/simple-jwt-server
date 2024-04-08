@@ -5,13 +5,15 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"time"
 
 	"crypto/x509"
 	"encoding/pem"
+
+	"github.com/golang-jwt/jwt"
 	"github.com/joho/godotenv"
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
-	"io/ioutil"
 )
 
 const privKeyLocation = "./private_key.pem"
@@ -21,6 +23,27 @@ var (
 	iss     string
 	privKey any
 )
+
+type Jwt struct {
+	Data string `json:"data"`
+}
+
+func issueGCPJwt(c echo.Context) error {
+	token := jwt.New(jwt.SigningMethodRS256)
+	claims := token.Claims.(jwt.MapClaims)
+	claims["exp"] = time.Now().Add(10 * time.Minute).Unix()
+	claims["authorized"] = true
+	claims["iss"] = iss
+	claims["scope"] = "https://www.googleapis.com/auth/cloud-platform"
+	claims["aud"] = "https://www.googleapis.com/oauth2/v4/token"
+	claims["iat"] = time.Now().Unix()
+
+	tokenString, err := token.SignedString(privKey)
+	if err != nil {
+		return err
+	}
+	return c.JSON(http.StatusOK, Jwt{Data: tokenString})
+}
 
 func main() {
 	e := echo.New()
@@ -37,7 +60,7 @@ func main() {
 		return c.String(http.StatusOK, "Up and running JWT issuer")
 	})
 
-	e.GET("/jwt/issue", handleJwtIssue)
+	e.GET("/jwt/issue", issueGCPJwt)
 	e.Logger.Fatal(e.Start(fmt.Sprintf(":%s", PORT)))
 }
 
@@ -57,7 +80,7 @@ func init() {
 	}
 
 	// Read private key from file
-	priv, err := ioutil.ReadFile(privKeyLocation)
+	priv, err := os.ReadFile(privKeyLocation)
 	if err != nil {
 		log.Println("Read error", err)
 		os.Exit(1)

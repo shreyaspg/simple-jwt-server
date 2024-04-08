@@ -1,2 +1,5 @@
 *.pem
 target
+server
+routes
+.envrc
